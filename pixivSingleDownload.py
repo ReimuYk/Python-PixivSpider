@@ -39,12 +39,16 @@ class pixiv:
         return targetHtml.text
 ######################
 
+
 p=pixiv()
+p.getPostKey()
+loginData = {"pixiv_id": p.pixiv_id, "password": p.password, 'post_key': p.postKey, 'return_to': p.return_to}   
+s.post(p.LoginUrl, data = loginData, headers = p.loginHeader)  
 
 def getHtml(url):
     page = urllib.request.urlopen(url)
     html = page.read().decode('utf-8')
-    html = p.getPageAfterLogin(url)
+    html = s.get(url).text
     return html
 
 def getReferer(url):
@@ -117,6 +121,6 @@ def MAIN():
             except:
                 pass
 
-#MAIN()
+MAIN()
 
 
