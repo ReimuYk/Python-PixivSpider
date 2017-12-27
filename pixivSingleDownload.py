@@ -3,8 +3,10 @@ import re,os
 import time
 from multiprocessing import Process,Queue
 import requests
+from copy import *
 
-workplace="./img/keta/"
+workplace=r"./img/kaoru/"
+successNum=0
 ######################
 s = requests.Session()
 class pixiv:
@@ -48,7 +50,7 @@ s.post(p.LoginUrl, data = loginData, headers = p.loginHeader)
 def getHtml(url):
     page = urllib.request.urlopen(url)
     html = page.read().decode('utf-8')
-    html = s.get(url).text
+    #html = s.get(url).text
     return html
 
 def getReferer(url):
@@ -61,13 +63,19 @@ def savePic(u,filename):
                              '(KHTML, like Gecko) Chrome/45.0.2454.101 Safari/537.36',
                "Connection":"keep-alive",
                "Referer":""}
+    url=deepcopy(u)
     u=u.replace(r'c/600x600/img-master',r'img-original')
     u=u.replace(r'_master1200','')
     #print(u)
     Headers['Referer']=getReferer(u)
-    
-    req=urllib.request.Request(u,None,Headers)
-    res=urllib.request.urlopen(req,timeout=1)
+
+    try:
+        req=urllib.request.Request(u,None,Headers)
+        res=urllib.request.urlopen(req,timeout=1)
+    except:
+        filename=filename+"_m"
+        req=urllib.request.Request(url,None,Headers)
+        res=urllib.request.urlopen(req,timeout=1)
     
     rstream=res.read()
     res.close()
@@ -79,20 +87,34 @@ def intoHtml(url):
     html = getHtml(url)
     #print(html)
     reg = r'.+src="(https://i.pximg.net/c/.+_p0_master1200.jpg)'
-    newUrl = re.findall(reg,html)[0]
+    newUrl = 0
+    try:
+        newUrl = re.findall(reg,html)[0]
+    except:
+        html = s.get(url).text
+        newUrl = re.findall(reg,html)[0]
     #print("new:"+newUrl)
     return newUrl
 
 def getSingleID(ID):
+    global successNum,workplace
+    isExist1=os.path.exists(workplace+ID+'.jpg')
+    isExist2=os.path.exists(workplace+ID+r'_m.jpg')
+    isExist=isExist1 or isExist2
+    if isExist:
+        #print("exist")
+        return 1
     url=r"https://www.pixiv.net/member_illust.php?mode=medium&illust_id="+ID 
     try:
         url=intoHtml(url)
         print(ID+" download...",end='\t')
         savePic(url,ID)
         print(ID+" done.")
+        successNum+=1
     except Exception as e:
         print(ID,end=":")
         print(e)
+    return 0
 
 def pixivFile(filename):
     f=open(filename,'r',encoding='utf-8')
@@ -101,26 +123,59 @@ def pixivFile(filename):
     IDlist=re.findall(fileR,h)
     return IDlist
 
-
+user_dict={}
+def getUIDlist():
+    url=r'https://www.pixiv.net/bookmark.php?type=user'
+    f_html = s.get(url).text
+    r1 = r'data-user_id="(\d+)"'
+    UIDlist = re.findall(r1,f_html)
+    UIDlist = UIDlist[4:]
+    r2 = r'data-user_name="(.+?)"'
+    UNlist = re.findall(r2,f_html)
+    for i in range(len(UIDlist)):
+        user_dict[UIDlist[i]] = UNlist[i]
     
 
+def getByUID(UID,UN):
+    global successNum,workplace
+    workplace = r'./img/'+UN+r'/'
+    try:
+        os.mkdir(workplace)
+    except:
+        pass
+    urlhead = r'https://www.pixiv.net/member_illust.php?id='+UID+'&type=all&p='
+    page_num=1
+    successNum=0
+    while True:
+        try:
+            url = urlhead + str(page_num)
+            pageinfo = s.get(url).text
+            pageR=r'.+?/(\d+)_p\d+_master1200.jpg'
+            IDlist=re.findall(pageR, pageinfo)
+            #print(IDlist)
+            if len(IDlist)==0:
+                break
+            for PID in IDlist:
+                try:
+                    getSingleID(PID)
+                except Exception as e:
+                    print(e)
+                    pass
+            page_num += 1
+        except Exception as e:
+            print(e)
+            break
+    print("success:"+str(successNum))
+
 def MAIN():
-    filehead="./html/k"
-    filetail=".html"
-    for i in range(1,3):
-        print("page "+str(i))
-        midstr=str(i)
-        if len(midstr)<2:
-            midstr='0'+midstr
-        file=filehead+midstr+filetail
-        IDlist=pixivFile(file)
-        print(IDlist)
-        for ID in IDlist:
-            try:
-                getSingleID(ID)
-            except:
-                pass
+    getUIDlist()
+    del user_dict['11']
+    del user_dict['4920496']
+    for k,v in user_dict.items():
+        getByUID(k,v)
 
 MAIN()
+##workplace=r"./img/火神レオ/"
+##MAIN('1317369')
 
 
