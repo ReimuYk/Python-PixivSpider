@@ -1,0 +1,11 @@
+pixivSetDownload.py:
+-	getHtml(url)	#ÍøÒ³Á´½Ó->htmlÎÄ±¾
+-	getReference(url)	#pixivReference
+U	savePic(u,dirname,i)	#u as image-url;dirname as savepath;i as index
+O	pixivGet(ID)		#set ID -> save as folder
+O	pixivList(idlist)	#input:list of PID
+				#func:download pics
+O	pixivFile(filename)	#input:filename
+				#func:get ID from file & download
+
+pixivSingleDownload.py:
