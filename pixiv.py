@@ -117,7 +117,6 @@ def pixivLogin():
     s.post(LoginUrl, data = loginData, headers = loginHeader)
 
 user_dict={}#dictionary of {UID : username}
-user_ignore=['11','4920496']
 def getUserDict():
     url=r'https://www.pixiv.net/bookmark.php?type=user'
     f_html = s.get(url).text
@@ -128,6 +127,16 @@ def getUserDict():
     UNlist = re.findall(r2,f_html)
     for i in range(len(UIDlist)):
         user_dict[UIDlist[i]] = UNlist[i]
+
+user_ignore=[]
+def getUserIgnore():
+    global user_ignore
+    f = open('userignore.txt','r')
+    flist = f.readlines()
+    for i in range(len(flist)):
+        flist[i] = flist[i][:-1]
+    user_ignore = flist
+    
 
 def getUserPIDs(UID):
     urlhead = r'https://www.pixiv.net/member_illust.php?id='+UID+'&type=all&p='
@@ -147,6 +156,15 @@ def getUserPIDs(UID):
             pass
     return res
 
+def getUserRecord(UID,username):
+    try:
+        f=open(r'./userdata/'+UID+' '+username+'.txt','r')
+    except:
+        return '0'
+    data=f.readline()
+    return data
+    
+
 def getUserPics(UID,username):
     workpath = workplace + username + r'/'
     try:
@@ -154,23 +172,69 @@ def getUserPics(UID,username):
     except:
         pass
     PIDlist = getUserPIDs(UID)
+    record = getUserRecord(UID,username)
     for PID in PIDlist:
+        if int(PID)<=int(record):
+            break
         try:
             stat = getByPID(PID,username)
             print('type:',stat)
         except Exception as e:
             f = open(r"./history/report.txt",'a+')
-            f.write(PID+'\t'+str(e)+'\n')
+            f.write(username+'\t'+PID+'\t'+str(e)+'\n')
             f.close()
             print('type:error ',e)
-        
+    f=open(r'./userdata/'+UID+' '+username+'.txt','w')
+    f.write(PIDlist[0])
+    f.close()
+
+def getErrPics():
+    path = r'./history/report.txt'
+    f = open(path, 'r')
+    l = f.readlines()
+    f.close()
+    for i in range(len(l)):
+        l[i] = l[i].split()
+    for item in l:
+        try:
+            stat = getByPID(item[1],item[0])
+            print('type:',stat)
+        except Exception as e:
+            f = open(r"./history/report2.txt",'a+')
+            f.write(item[0]+'\t'+item[1]+'\t'+str(e)+'\n')
+            f.close()
+            print('type:error ',e)
+    os.remove(path)
+    try:
+        os.rename(r"./history/report2.txt",path)
+        os.remove(r"./history/report2.txt")
+    except:
+        pass
+
+def getTags(PID):
+    url = r'https://www.pixiv.net/member_illust.php?mode=medium&illust_id='+PID
+    html = getHtml(url)
+    rTag = r'tags.+ul'
+    tagContainer = re.findall(rTag, html)[0]
+    r2 = r'text">(.+?)</a'
+    tags = re.findall(r2, tagContainer)
+    return tags
+    
+
+getNewerMode = True
 def interestDownload():
     pixivLogin()
     getUserDict()
+    getUserIgnore()
     for k,v in user_dict.items():
-        print('\n',k,v)
+        if getNewerMode and checkFileExist(r'./userdata/'+k+' '+v+'.txt'):
+            continue
+        print('\n',k,v,end="")
         if not k in user_ignore:
+            print("\tget")
             getUserPics(k,v)
+        else:
+            print('\tignored')
     
 def test():
     global workplace
@@ -188,5 +252,8 @@ def test1():
     print(getByPID('7823236','none'))#normal single png
     print(getByPID('62742920','none'))#normal single png
     
-
-interestDownload()
+##res = getTags("59507226")
+##print(res)
+#interestDownload()
+pixivLogin()
+getErrPics()
