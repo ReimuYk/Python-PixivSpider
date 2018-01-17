@@ -4,6 +4,7 @@ import time
 import codecs
 import requests
 from copy import *
+import downloadData as d
 
 workplace = r"./img/"
 successNum = 0
@@ -83,6 +84,8 @@ def singleDownload(PID,username):
 
 def getByPID(PID,username):
     print(username,PID+' download...',end='\t')
+    if d.check(PID):
+        return 'downloaded'
 
     stat = setDownload(PID,username)
     if stat:
@@ -117,8 +120,8 @@ def pixivLogin():
     s.post(LoginUrl, data = loginData, headers = loginHeader)
 
 user_dict={}#dictionary of {UID : username}
-def getUserDict():
-    url=r'https://www.pixiv.net/bookmark.php?type=user'
+def getUserDict(page):
+    url=r'https://www.pixiv.net/bookmark.php?type=user&rest=show&p='+str(page)
     f_html = s.get(url).text
     r1 = r'data-user_id="(\d+)"'
     UIDlist = re.findall(r1,f_html)
@@ -179,6 +182,12 @@ def getUserPics(UID,username):
         try:
             stat = getByPID(PID,username)
             print('type:',stat)
+            if stat=='downloaded':
+                print('',end='')
+            if stat=='set':
+                d.insert(UID,username,PID,'set')
+            if 'single' in stat or stat=='exist':
+                d.insert(UID,username,PID,'single')
         except Exception as e:
             f = open(r"./history/report.txt",'a+')
             f.write(username+'\t'+PID+'\t'+str(e)+'\n')
@@ -224,8 +233,10 @@ def getTags(PID):
 getNewerMode = True
 def interestDownload():
     pixivLogin()
-    getUserDict()
+    getUserDict(1)
+    getUserDict(2)
     getUserIgnore()
+    print(len(user_dict))
     for k,v in user_dict.items():
         if getNewerMode and checkFileExist(r'./userdata/'+k+' '+v+'.txt'):
             continue
@@ -235,6 +246,7 @@ def interestDownload():
             getUserPics(k,v)
         else:
             print('\tignored')
+    d.ci()
     
 def test():
     global workplace
@@ -254,6 +266,6 @@ def test1():
     
 ##res = getTags("59507226")
 ##print(res)
-#interestDownload()
-pixivLogin()
-getErrPics()
+interestDownload()
+##pixivLogin()
+##getErrPics()
